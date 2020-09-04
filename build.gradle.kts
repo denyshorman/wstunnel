@@ -4,6 +4,7 @@ plugins {
     application
     kotlin("jvm") version "1.4.0"
     id("com.github.johnrengelman.shadow") version "6.0.0"
+    id("com.palantir.graal") version "0.7.1-20-g113a84d"
 }
 
 group = "wstunnel"
@@ -12,6 +13,13 @@ java.sourceCompatibility = JavaVersion.VERSION_11
 
 application {
     mainClassName = "wstunnel.MainKt"
+}
+
+graal {
+    graalVersion("20.2.0")
+    javaVersion("11")
+    outputName("wstunnel")
+    mainClass(application.mainClassName)
 }
 
 repositories {
