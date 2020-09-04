@@ -1,0 +1,21 @@
+image: scratch
+
+stages:
+  - build
+  - package
+  - deploy
+
+build:
+  image: bellsoft/liberica-openjdk-alpine:14
+  stage: build
+  before_script:
+    - chmod +x gradlew
+  script:
+    - ./gradlew bootJar
+  artifacts:
+    paths:
+      - build/libs/*.jar
+  interruptible: true
+  retry: 1
+  only:
+    - master

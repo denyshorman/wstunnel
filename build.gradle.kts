@@ -1,0 +1,77 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+plugins {
+    application
+    kotlin("jvm") version "1.4.0"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
+}
+
+group = "wstunnel"
+version = "1.0.0"
+java.sourceCompatibility = JavaVersion.VERSION_11
+
+application {
+    mainClassName = "wstunnel.MainKt"
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        url = uri("https://kotlin.bintray.com/kotlinx")
+    }
+}
+
+val ktorVersion = "1.4.0"
+
+dependencies {
+    implementation("ch.qos.logback:logback-classic:1.2.3")
+    implementation("io.github.microutils:kotlin-logging:1.8.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3")
+
+    implementation("io.ktor:ktor-server-cio:$ktorVersion")
+    implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-core-jvm:$ktorVersion")
+    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-network:$ktorVersion")
+
+    testImplementation("io.ktor:ktor-server-tests:$ktorVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.6.1")
+    testImplementation("org.mockito:mockito-core:3.3.3")
+    testImplementation("com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0")
+}
+
+tasks {
+    withType<KotlinCompile>().all {
+        with(kotlinOptions) {
+            jvmTarget = "11"
+
+            freeCompilerArgs = freeCompilerArgs + listOf(
+                "-Xjsr305=strict",
+                "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+                "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
+                "-Xuse-experimental=kotlinx.coroutines.FlowPreview",
+                "-Xuse-experimental=kotlinx.cli.ExperimentalCli",
+                "-Xuse-experimental=kotlin.time.ExperimentalTime",
+                "-Xuse-experimental=io.ktor.util.KtorExperimentalAPI"
+            )
+        }
+    }
+
+    withType<Test> {
+        useJUnitPlatform()
+    }
+
+    withType<Jar> {
+        manifest {
+            attributes(
+                mapOf(
+                    "Main-Class" to application.mainClassName
+                )
+            )
+        }
+    }
+}
