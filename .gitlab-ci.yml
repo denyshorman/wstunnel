@@ -11,10 +11,12 @@ build:
   before_script:
     - chmod +x gradlew
   script:
-    - ./gradlew bootJar
+    - ./gradlew shadowJar
+    - ./gradlew nativeImag
   artifacts:
     paths:
       - build/libs/*.jar
+      - build/graal/
   interruptible: true
   retry: 1
   only:
