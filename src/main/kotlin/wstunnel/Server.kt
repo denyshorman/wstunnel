@@ -10,6 +10,7 @@ import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import java.util.*
 import kotlin.collections.HashMap
@@ -94,15 +95,25 @@ class Server(
                                 logger.debug("Client $wsId awaiting for another socket...")
                             }
 
-                            select {
-                                otherWebSocketDeferred.onAwait { it }
+                            try {
+                                select {
+                                    otherWebSocketDeferred.onAwait { it }
 
-                                this@webSocket.incoming.onReceive { frame ->
-                                    when (frame) {
-                                        is Frame.Close -> throw ConnectionClosedException(frame.readReason())
-                                        else -> throw ConnectionClosedException()
+                                    this@webSocket.incoming.onReceive { frame ->
+                                        when (frame) {
+                                            is Frame.Close -> throw ConnectionClosedException(frame.readReason())
+                                            else -> throw ConnectionClosedException()
+                                        }
                                     }
                                 }
+                            } catch (e: Throwable) {
+                                withContext(NonCancellable) {
+                                    mutex.withLock {
+                                        awaitConn1.remove(msg.id)
+                                    }
+                                }
+
+                                throw e
                             }
                         } else {
                             if (awaitingConnList0.size == 0) {
