@@ -26,7 +26,7 @@ heroku-deploy:
   services:
     - docker:19.03.12-dind
   before_script:
-    - cp $HEROKU_CREDS > ~/.netrc
+    - cp $HEROKU_CREDS ~/.netrc
     - curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
     - heroku login
     - heroku container:login
