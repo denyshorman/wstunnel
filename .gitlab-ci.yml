@@ -2,7 +2,6 @@ image: scratch
 
 stages:
   - build
-  - package
   - deploy
 
 build-jar:
@@ -20,19 +19,17 @@ build-jar:
   only:
     - master
 
-build-native-image:
-  image: bellsoft/liberica-openjdk-debian:14
-  stage: build
+heroku-deploy:
+  image: ubuntu
+  stage: deploy
+  when: manual
+  services:
+    - docker:19.03.12-dind
   before_script:
-    - chmod +x gradlew
-    - apt-get update -qq
-    - apt-get install -y -qq build-essential libz-dev zlib1g-dev
+    - cp $HEROKU_CREDS > ~/.netrc
+    - curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
+    - heroku login
+    - heroku container:login
   script:
-    - ./gradlew nativeImage
-  artifacts:
-    paths:
-      - build/graal/
-  interruptible: true
-  retry: 1
-  only:
-    - master
+    - heroku container:push web -a $HEROKU_APP_NAME
+    - heroku container:release web -a $HEROKU_APP_NAME
