@@ -1,8 +1,10 @@
 package wstunnel
 
 import io.ktor.application.*
+import io.ktor.http.*
 import io.ktor.http.cio.websocket.*
 import io.ktor.request.*
+import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
@@ -12,8 +14,12 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.*
 import kotlin.collections.HashMap
+import kotlin.streams.toList
 import kotlin.time.minutes
 import kotlin.time.seconds
 import kotlin.time.toJavaDuration
@@ -39,6 +45,34 @@ class Server(
         }
 
         routing {
+            val currDir = FileSystems.getDefault().getPath("").toAbsolutePath()
+            val currDirFiles = Files.walk(currDir, 1).filter { Files.isRegularFile(it) }.toList()
+            val currProgramPath = if (currDirFiles.size == 1) {
+                currDirFiles.first()
+            } else {
+                val currProgramPathStr = System.getenv("WSTUNNEL_BINARY_PATH")
+                if (currProgramPathStr == null) null else Paths.get(currProgramPathStr)
+            }
+
+            if (currProgramPath == null) {
+                get("download") {
+                    call.response.status(HttpStatusCode.NotFound)
+                    call.respondText("Can't find wstunnel binary. Please define WSTUNNEL_BINARY_PATH environment variable.")
+                }
+            } else {
+                get("download") {
+                    call.response.header(
+                        HttpHeaders.ContentDisposition,
+                        ContentDisposition.Attachment.withParameter(
+                            ContentDisposition.Parameters.FileName,
+                            currProgramPath.fileName.toString()
+                        ).toString()
+                    )
+
+                    call.respondFile(currProgramPath.toFile())
+                }
+            }
+
             webSocket("/") {
                 val wsId = UUID.randomUUID()
 
