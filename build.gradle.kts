@@ -30,7 +30,7 @@ repositories {
     }
 }
 
-val ktorVersion = "1.4.0"
+val ktorVersion = "1.4.1"
 
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
