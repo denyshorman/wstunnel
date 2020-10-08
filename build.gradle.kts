@@ -37,6 +37,10 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging:1.8.3")
     implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3")
 
+    implementation("org.apache.sshd:sshd-core:2.5.1")
+    implementation("org.apache.sshd:sshd-sftp:2.5.1")
+    // implementation("org.apache.sshd:sshd-common:2.5.1")
+
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-client-core:$ktorVersion")
