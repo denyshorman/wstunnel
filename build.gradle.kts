@@ -9,7 +9,7 @@ plugins {
 
 group = "wstunnel"
 version = "1.0.0"
-java.sourceCompatibility = JavaVersion.VERSION_11
+java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 application {
     mainClassName = "wstunnel.MainKt"
@@ -31,15 +31,15 @@ repositories {
 }
 
 val ktorVersion = "1.4.1"
+val sshdVersion = "2.5.1"
 
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.github.microutils:kotlin-logging:1.8.3")
     implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3")
 
-    implementation("org.apache.sshd:sshd-core:2.5.1")
-    implementation("org.apache.sshd:sshd-sftp:2.5.1")
-    // implementation("org.apache.sshd:sshd-common:2.5.1")
+    implementation("org.apache.sshd:sshd-core:$sshdVersion")
+    implementation("org.apache.sshd:sshd-sftp:$sshdVersion")
 
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
@@ -59,7 +59,7 @@ dependencies {
 tasks {
     withType<KotlinCompile>().all {
         with(kotlinOptions) {
-            jvmTarget = "11"
+            jvmTarget = "1.8"
 
             freeCompilerArgs = freeCompilerArgs + listOf(
                 "-Xjsr305=strict",
