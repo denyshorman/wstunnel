@@ -28,7 +28,7 @@ heroku-deploy:
   before_script:
     - cp $HEROKU_CREDS ~/.netrc
     - apt-get update
-    - apt-get install curl
+    - apt-get install curl -y
     - curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
     - heroku login
     - heroku container:login
