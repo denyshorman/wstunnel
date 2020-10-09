@@ -20,18 +20,15 @@ build-jar:
     - master
 
 heroku-deploy:
-  image: ubuntu
+  image: docker
   stage: deploy
   when: manual
   services:
-    - docker:19.03.12-dind
+    - docker:dind
   before_script:
-    - cp $HEROKU_CREDS ~/.netrc
     - apt-get update
-    - apt-get install curl -y
+    - apt-get install curl gnupg2 -y
     - curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
-    - heroku login
-    - heroku container:login
   script:
     - heroku container:push web -a $HEROKU_APP_NAME
     - heroku container:release web -a $HEROKU_APP_NAME
