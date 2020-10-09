@@ -1,3 +1,4 @@
 FROM bellsoft/liberica-openjdk-alpine:15
-COPY build/libs/*.jar /app/wstunnel.jar
-CMD java -jar /app/wstunnel.jar server -p $PORT
+ENV WSTUNNEL_BINARY_PATH=/app/wstunnel.jar
+COPY build/libs/*.jar $WSTUNNEL_BINARY_PATH
+CMD java -jar $WSTUNNEL_BINARY_PATH server -p $PORT
