@@ -26,7 +26,7 @@ private class ServerCommand : Subcommand("server", "Server related options") {
 }
 
 private class ClientCommand : Subcommand("client", "Client related options") {
-    private val serverUrl by argument(ArgType.String, "serverUrl", "Server URL in format ws|wss://host[:port]")
+    private val server by option(ArgType.String, "serverUrl", "S", "Server URL in format ws|wss://host[:port]")
     private val listen by option(ArgType.String, "listen", "l", "Listen port[|host[|id]]").multiple()
     private val forward by option(ArgType.String, "forward", "f", "Forward port[|host[|id]]").multiple()
     private val listenSshd by option(ArgType.String, "listen-sshd", "lsshd", "Listen sshd [port[|host[|id]]]")
@@ -35,6 +35,10 @@ private class ClientCommand : Subcommand("client", "Client related options") {
         runBlocking(Dispatchers.Default) {
             try {
                 coroutineScope {
+                    val serverUrl = server
+                        ?: System.getenv("WSTUNNEL_SERVER")
+                        ?: throw RuntimeException("Server is not defined")
+
                     val listenConf = listen.map { ListenForwardConfig.deserialize(SocketRole.Listen, it) }
                     val forwardConf = forward.map { ListenForwardConfig.deserialize(SocketRole.Forward, it) }
 
