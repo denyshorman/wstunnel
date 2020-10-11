@@ -26,9 +26,15 @@ heroku-deploy:
   services:
     - docker:dind
   before_script:
-    - apt-get update
-    - apt-get install curl gnupg2 -y
-    - curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
+    - apk add --update curl
   script:
-    - heroku container:push web -a $HEROKU_APP_NAME
-    - heroku container:release web -a $HEROKU_APP_NAME
+    - docker login --username=_ --password=$HEROKU_API_KEY registry.heroku.com
+    - docker build -t registry.heroku.com/$HEROKU_APP_NAME/web .
+    - docker push registry.heroku.com/$HEROKU_APP_NAME/web
+    - imageId=$(docker inspect registry.heroku.com/$HEROKU_APP_NAME/web --format={{.Id}})
+    - |
+      curl -f -X PATCH https://api.heroku.com/apps/$HEROKU_APP_NAME/formation \
+        -H "Authorization: Bearer $HEROKU_API_KEY" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+        -d "{\"updates\":[{\"type\":\"web\",\"docker_image\":\"$imageId\"}]}"
