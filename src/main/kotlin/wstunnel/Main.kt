@@ -27,9 +27,9 @@ private class ServerCommand : Subcommand("server", "Server related options") {
 
 private class ClientCommand : Subcommand("client", "Client related options") {
     private val server by option(ArgType.String, "serverUrl", "S", "Server URL in format ws|wss://host[:port]")
-    private val listen by option(ArgType.String, "listen", "l", "Listen port[|host[|id]]").multiple()
-    private val forward by option(ArgType.String, "forward", "f", "Forward port[|host[|id]]").multiple()
-    private val listenSshd by option(ArgType.String, "listen-sshd", "lsshd", "Listen sshd [port[|host[|id]]]")
+    private val listen by option(ArgType.String, "listen", "l", "Listen port[;host[;id]]").multiple()
+    private val forward by option(ArgType.String, "forward", "f", "Forward port[;host[;id]]").multiple()
+    private val listenSshd by option(ArgType.String, "listen-sshd", "lsshd", "Listen sshd [port[;host[;id]]]")
 
     override fun execute() {
         runBlocking(Dispatchers.Default) {
@@ -94,7 +94,7 @@ private class ClientCommand : Subcommand("client", "Client related options") {
                 defaultHost: String = "127.0.0.1",
                 defaultId: String = UUID.randomUUID().toString(),
             ): ListenForwardConfig {
-                val params = command.split("|")
+                val params = command.split(";")
 
                 val port = params.getOrNull(0)?.toIntOrNull()
                     ?: defaultPort
