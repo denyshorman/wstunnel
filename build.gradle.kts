@@ -1,9 +1,10 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     application
     kotlin("jvm") version "1.4.10"
-    id("com.github.johnrengelman.shadow") version "6.0.0"
+    id("com.github.johnrengelman.shadow") version "6.1.0"
     id("com.palantir.graal") version "0.7.1-20-g113a84d"
 }
 
@@ -12,14 +13,15 @@ version = "1.0.0"
 java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 application {
-    mainClassName = "wstunnel.MainKt"
+    mainClass.set("wstunnel.MainKt")
+    mainClassName = mainClass.get() // TODO: Remove when shadow plugin will add support for mainClass
 }
 
 graal {
     graalVersion("20.2.0")
     javaVersion("11")
     outputName("wstunnel")
-    mainClass(application.mainClassName)
+    mainClass(application.mainClass.get())
 }
 
 repositories {
@@ -78,12 +80,18 @@ tasks {
     }
 
     withType<Jar> {
+        archiveFileName.set("wstunnel.jar")
+
         manifest {
             attributes(
                 mapOf(
-                    "Main-Class" to application.mainClassName
+                    "Main-Class" to application.mainClass.get()
                 )
             )
         }
+    }
+
+    withType<ShadowJar> {
+        minimize()
     }
 }
