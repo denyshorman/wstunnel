@@ -1,56 +1,51 @@
 package wstunnel
 
-interface Protocol
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+//region Encoder
+private val encoder = Json {
+    classDiscriminator = "T"
+}
+
+fun Message.encode(): String {
+    return encoder.encodeToString(this)
+}
+
+fun String.decode(): Message? {
+    return encoder.decodeFromString(this)
+}
+//endregion
+
+//region Messages
+@Serializable
+sealed class Message
+
+@Serializable
+@SerialName("0")
+data class ListenConfig(
+    @SerialName("r")
+    val connType: SocketRole,
+
+    @SerialName("i")
+    val id: String
+) : Message()
+
+@Serializable
+@SerialName("1")
+object ConnectionEstablished : Message()
+//endregion
+
+//region Other Models
+@Serializable
 enum class SocketRole {
+    @SerialName("0")
     Listen,
+
+    @SerialName("1")
     Forward,
 }
-
-data class ListenConfig(
-    val connType: SocketRole,
-    val id: String
-) : Protocol
-
-object ConnectionEstablished : Protocol
-
-
-fun ListenConfig.serialize(): String {
-    return "0,${connType.serialize()},$id"
-}
-
-fun SocketRole.serialize(): String {
-    return when (this) {
-        SocketRole.Listen -> "0"
-        SocketRole.Forward -> "1"
-    }
-}
-
-fun String?.deserializeSocketRole(): SocketRole? {
-    if (this == null) return null
-    if (this == "0") return SocketRole.Listen
-    if (this == "1") return SocketRole.Forward
-    return null
-}
-
-fun ConnectionEstablished.serialize(): String {
-    return "1"
-}
-
-fun String?.deserializeProtocol(): Protocol? {
-    if (this == null) return null
-    val params = this.split(",")
-    val msgType = params.getOrNull(0) ?: return null
-    when (msgType) {
-        "0" -> {
-            val role = params.getOrNull(1)?.deserializeSocketRole() ?: return null
-            val id = params.getOrNull(2) ?: return null
-            if (id.length > 512) return null
-            return ListenConfig(role, id)
-        }
-        "1" -> {
-            return ConnectionEstablished
-        }
-        else -> return null
-    }
-}
+//endregion

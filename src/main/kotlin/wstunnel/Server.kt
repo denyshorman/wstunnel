@@ -80,7 +80,7 @@ class Server(
                     coroutineScope {
                         if (logger.isDebugEnabled) logger.debug("Client $wsId connected")
 
-                        val msg = call.request.header("X-TUN-CONF").deserializeProtocol()
+                        val msg = call.request.header("X-TUN-CONF")?.decode()
 
                         if (msg !is ListenConfig) {
                             val closeReason = CloseReason(
@@ -164,7 +164,7 @@ class Server(
                             logger.debug("Client $wsId received a connection. Start forwarding data...")
                         }
 
-                        this@webSocket.send(Frame.Text(ConnectionEstablished.serialize()))
+                        this@webSocket.send(Frame.Text(ConnectionEstablished.encode()))
 
                         launch(start = CoroutineStart.UNDISPATCHED) {
                             val closeReason = otherSocket.closeReason.await()

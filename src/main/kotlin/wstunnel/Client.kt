@@ -41,7 +41,7 @@ class Client(
     }
 
     private val webSocketHttpRequest: HttpRequestBuilder.() -> Unit = {
-        val listenConfig = ListenConfig(role, id).serialize()
+        val listenConfig = ListenConfig(role, id).encode()
         url.takeFrom(Url(serverUrl))
         header("X-TUN-CONF", listenConfig)
     }
@@ -50,7 +50,7 @@ class Client(
         val initialFrame = incoming.receive()
 
         val connectionEstablished = initialFrame is Frame.Text
-                && initialFrame.readText().deserializeProtocol() is ConnectionEstablished
+                && initialFrame.readText().decode() is ConnectionEstablished
 
         if (!connectionEstablished) throw ConnectionClosedException
     }
