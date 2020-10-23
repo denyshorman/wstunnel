@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     application
     kotlin("jvm") version "1.4.10"
+    kotlin("plugin.serialization") version "1.4.10"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     id("com.palantir.graal") version "0.7.1-20-g113a84d"
 }
@@ -34,6 +35,7 @@ repositories {
 
 val ktorVersion = "1.4.1"
 val sshdVersion = "2.5.1"
+val kotestVersion = "4.3.0"
 
 dependencies {
     implementation("ch.qos.logback:logback-classic:1.2.3")
@@ -48,14 +50,16 @@ dependencies {
     implementation("io.ktor:ktor-client-core:$ktorVersion")
     implementation("io.ktor:ktor-client-core-jvm:$ktorVersion")
     implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
     implementation("io.ktor:ktor-client-cio:$ktorVersion")
     implementation("io.ktor:ktor-websockets:$ktorVersion")
     implementation("io.ktor:ktor-network:$ktorVersion")
 
     testImplementation("io.ktor:ktor-server-tests:$ktorVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.6.1")
-    testImplementation("org.mockito:mockito-core:3.3.3")
-    testImplementation("com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0")
+    testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+    testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
+    testImplementation("io.kotest:kotest-assertions-json:$kotestVersion")
+    testImplementation("io.mockk:mockk:1.10.2")
 }
 
 tasks {
