@@ -16,13 +16,7 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import kotlin.time.seconds
 
-class Client(
-    private val serverUrl: String,
-    private val role: SocketRole,
-    private val id: String,
-    private val port: Int,
-    private val host: String,
-) {
+class Client(private val config: Config) {
     private val logger = KotlinLogging.logger {}
 
     private val client = HttpClient(CIO) {
@@ -40,19 +34,41 @@ class Client(
         }
     }
 
-    private val webSocketHttpRequest: HttpRequestBuilder.() -> Unit = {
-        val listenConfig = ListenConfig(role, id).encode()
-        url.takeFrom(Url(serverUrl))
-        header("X-TUN-CONF", listenConfig)
+    private fun webSocketHttpRequest(clientType: Config.ClientType): HttpRequestBuilder.() -> Unit {
+        return {
+            val connectType = when (clientType) {
+                is Config.ClientType.Listen -> ConnectConfig.Type.Listen
+                is Config.ClientType.Forward -> ConnectConfig.Type.Forward
+                is Config.ClientType.DynamicListen -> ConnectConfig.Type.DynamicListen
+                is Config.ClientType.DynamicForward -> ConnectConfig.Type.DynamicForward(
+                    clientType.remoteHost,
+                    clientType.remotePort
+                )
+            }
+
+            val connectConfig = ConnectConfig(config.id, connectType)
+
+            url.takeFrom(Url(config.serverUrl))
+            header("X-TUN-CONF", connectConfig.encode())
+        }
     }
 
-    private suspend fun DefaultClientWebSocketSession.awaitConnectionEstablished() {
+    private suspend fun DefaultClientWebSocketSession.awaitConnectionEstablished(): ConnectionEstablished {
         val initialFrame = incoming.receive()
 
-        val connectionEstablished = initialFrame is Frame.Text
-                && initialFrame.readText().decode() is ConnectionEstablished
+        if (initialFrame !is Frame.Text) {
 
-        if (!connectionEstablished) throw ConnectionClosedException
+            throw ConnectionClosedException()
+        }
+
+        val msg = initialFrame.readText().decode()
+
+        if (msg !is ConnectionEstablished) {
+
+            throw ConnectionClosedException()
+        }
+
+        return msg
     }
 
     private suspend fun forwardWebSocketToSocket(socket: Socket, webSocket: DefaultWebSocketSession) {
@@ -64,7 +80,7 @@ class Client(
                     val bytes = frame.readBytes()
                     output.writeFully(bytes, 0, bytes.size)
                 }
-                is Frame.Close -> throw ConnectionClosedException
+                is Frame.Close -> throw ConnectionClosedException(frame.readReason())
                 else -> {
                     // ignore other frames
                 }
@@ -78,23 +94,35 @@ class Client(
 
         while (true) {
             val readCount = input.readAvailable(buffer, 0, buffer.size)
-            if (readCount == -1) throw ConnectionClosedException
+            if (readCount == -1) throw ConnectionClosedException()
             webSocket.outgoing.send(Frame.Binary(true, ByteBuffer.wrap(buffer, 0, readCount)))
         }
     }
 
     private suspend fun listen() {
+        config.clientType as Config.ClientType.Listen
+
         coroutineScope {
             while (isActive) {
                 val triggerNewConnection = CompletableDeferred<Unit>()
 
                 launch {
                     try {
-                        client.webSocket(webSocketHttpRequest) {
+                        client.webSocket(webSocketHttpRequest(config.clientType)) {
                             coroutineScope {
-                                awaitConnectionEstablished()
+                                val connectionEstablished = awaitConnectionEstablished()
 
-                                val socket = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp().connect(host, port)
+                                if (connectionEstablished.type !is ConnectionEstablished.Type.Forward) {
+                                    val closeReason = CloseReason(
+                                        CloseReason.Codes.CANNOT_ACCEPT,
+                                        "Forward must be sent"
+                                    )
+
+                                    throw ConnectionClosedException(closeReason)
+                                }
+
+                                val socket = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp()
+                                    .connect(config.clientType.host, config.clientType.port)
 
                                 triggerNewConnection.complete(Unit)
 
@@ -119,6 +147,10 @@ class Client(
                         throw e
                     } catch (e: IllegalArgumentException) {
                         throw e
+                    } catch (e: ConnectionClosedException) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Closing client connection: ${e.reason ?: "Unknown reason"}.")
+                        }
                     } catch (e: Throwable) {
                         if (logger.isDebugEnabled) {
                             logger.debug("Listen error: ${e.message}")
@@ -135,16 +167,28 @@ class Client(
 
     private suspend fun forward() {
         coroutineScope {
-            val forward = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp().bind(InetSocketAddress(host, port))
+            config.clientType as Config.ClientType.Forward
+
+            val forward = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp()
+                .bind(InetSocketAddress(config.clientType.host, config.clientType.port))
 
             while (isActive) {
                 val socket = forward.accept()
 
                 launch {
                     try {
-                        client.webSocket(webSocketHttpRequest) {
+                        client.webSocket(webSocketHttpRequest(config.clientType)) {
                             coroutineScope {
-                                awaitConnectionEstablished()
+                                val connectionEstablished = awaitConnectionEstablished()
+
+                                if (connectionEstablished.type !is ConnectionEstablished.Type.Listen) {
+                                    val closeReason = CloseReason(
+                                        CloseReason.Codes.CANNOT_ACCEPT,
+                                        "Listen must be sent"
+                                    )
+
+                                    throw ConnectionClosedException(closeReason)
+                                }
 
                                 launch { forwardWebSocketToSocket(socket, this@webSocket) }
                                 launch { forwardSocketToWebSocket(socket, this@webSocket) }
@@ -158,6 +202,129 @@ class Client(
                         throw e
                     } catch (e: IllegalArgumentException) {
                         throw e
+                    } catch (e: ConnectionClosedException) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Closing client connection: ${e.reason ?: "Unknown reason"}.")
+                        }
+                    } catch (e: Throwable) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Forward error: ${e.message}")
+                        }
+                    } finally {
+                        socket.dispose()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun dynamicListen() {
+        config.clientType as Config.ClientType.DynamicListen
+
+        coroutineScope {
+            while (isActive) {
+                val triggerNewConnection = CompletableDeferred<Unit>()
+
+                launch {
+                    try {
+                        client.webSocket(webSocketHttpRequest(config.clientType)) {
+                            coroutineScope {
+                                val connectionEstablished = awaitConnectionEstablished()
+
+                                if (connectionEstablished.type !is ConnectionEstablished.Type.DynamicForward) {
+                                    val closeReason = CloseReason(
+                                        CloseReason.Codes.CANNOT_ACCEPT,
+                                        "Dynamic forward must be sent"
+                                    )
+
+                                    throw ConnectionClosedException(closeReason)
+                                }
+
+                                val socket = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp()
+                                    .connect(connectionEstablished.type.host, connectionEstablished.type.port)
+
+                                triggerNewConnection.complete(Unit)
+
+                                // Waiting for error/disconnection to close connection to listening socket
+                                launch {
+                                    try {
+                                        delay(Long.MAX_VALUE)
+                                    } finally {
+                                        socket.dispose()
+                                    }
+                                }
+
+                                launch { forwardWebSocketToSocket(socket, this@webSocket) }
+                                launch { forwardSocketToWebSocket(socket, this@webSocket) }
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ClientRequestException) {
+                        throw e
+                    } catch (e: NoTransformationFoundException) {
+                        throw e
+                    } catch (e: IllegalArgumentException) {
+                        throw e
+                    } catch (e: ConnectionClosedException) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Closing client connection: ${e.reason ?: "Unknown reason"}.")
+                        }
+                    } catch (e: Throwable) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Listen error: ${e.message}")
+                        }
+                    } finally {
+                        triggerNewConnection.complete(Unit)
+                    }
+                }
+
+                triggerNewConnection.await()
+            }
+        }
+    }
+
+    private suspend fun dynamicForward() {
+        coroutineScope {
+            config.clientType as Config.ClientType.DynamicForward
+
+            val forward = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp()
+                .bind(InetSocketAddress(config.clientType.localHost, config.clientType.localPort))
+
+            while (isActive) {
+                val socket = forward.accept()
+
+                launch {
+                    try {
+                        client.webSocket(webSocketHttpRequest(config.clientType)) {
+                            coroutineScope {
+                                val connectionEstablished = awaitConnectionEstablished()
+
+                                if (connectionEstablished.type !is ConnectionEstablished.Type.DynamicListen) {
+                                    val closeReason = CloseReason(
+                                        CloseReason.Codes.CANNOT_ACCEPT,
+                                        "Dynamic listen must be sent"
+                                    )
+
+                                    throw ConnectionClosedException(closeReason)
+                                }
+
+                                launch { forwardWebSocketToSocket(socket, this@webSocket) }
+                                launch { forwardSocketToWebSocket(socket, this@webSocket) }
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ClientRequestException) {
+                        throw e
+                    } catch (e: NoTransformationFoundException) {
+                        throw e
+                    } catch (e: IllegalArgumentException) {
+                        throw e
+                    } catch (e: ConnectionClosedException) {
+                        if (logger.isDebugEnabled) {
+                            logger.debug("Closing client connection: ${e.reason ?: "Unknown reason"}.")
+                        }
                     } catch (e: Throwable) {
                         if (logger.isDebugEnabled) {
                             logger.debug("Forward error: ${e.message}")
@@ -171,11 +338,41 @@ class Client(
     }
 
     suspend fun start() {
-        when (role) {
-            SocketRole.Listen -> listen()
-            SocketRole.Forward -> forward()
+        when (config.clientType) {
+            is Config.ClientType.Listen -> listen()
+            is Config.ClientType.Forward -> forward()
+            is Config.ClientType.DynamicListen -> dynamicListen()
+            is Config.ClientType.DynamicForward -> dynamicForward()
         }
     }
 
-    private object ConnectionClosedException : Throwable("", null, false, false)
+
+    data class Config(
+        val serverUrl: String,
+        val id: String,
+        val clientType: ClientType,
+    ) {
+        sealed class ClientType {
+            data class Listen(
+                val host: String,
+                val port: Int,
+            ) : ClientType()
+
+            data class Forward(
+                val host: String,
+                val port: Int,
+            ) : ClientType()
+
+            object DynamicListen : ClientType()
+
+            data class DynamicForward(
+                val localHost: String,
+                val localPort: Int,
+                val remoteHost: String,
+                val remotePort: Int,
+            ) : ClientType()
+        }
+    }
+
+    private data class ConnectionClosedException(val reason: CloseReason? = null) : Throwable(null, null, false, false)
 }

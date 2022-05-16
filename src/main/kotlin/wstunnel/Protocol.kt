@@ -26,26 +26,62 @@ sealed class Message
 
 @Serializable
 @SerialName("0")
-data class ListenConfig(
-    @SerialName("r")
-    val connType: SocketRole,
-
+data class ConnectConfig(
     @SerialName("i")
-    val id: String
-) : Message()
+    val id: String,
+
+    @SerialName("t")
+    val type: Type,
+) : Message() {
+    @Serializable
+    sealed class Type {
+        @Serializable
+        @SerialName("L")
+        object Listen: Type()
+
+        @Serializable
+        @SerialName("F")
+        object Forward: Type()
+
+        @Serializable
+        @SerialName("DL")
+        object DynamicListen: Type()
+
+        @Serializable
+        @SerialName("DF")
+        data class DynamicForward(
+            val host: String,
+            val port: Int,
+        ): Type()
+    }
+}
 
 @Serializable
 @SerialName("1")
-object ConnectionEstablished : Message()
-//endregion
+data class ConnectionEstablished(
+    @SerialName("t")
+    val type: Type,
+) : Message() {
+    @Serializable
+    sealed class Type {
+        @Serializable
+        @SerialName("L")
+        object Listen: Type()
 
-//region Other Models
-@Serializable
-enum class SocketRole {
-    @SerialName("0")
-    Listen,
+        @Serializable
+        @SerialName("F")
+        object Forward: Type()
 
-    @SerialName("1")
-    Forward,
+        @Serializable
+        @SerialName("DL")
+        object DynamicListen: Type()
+
+        @Serializable
+        @SerialName("DF")
+        data class DynamicForward(
+            val host: String,
+            val port: Int,
+        ): Type()
+    }
 }
 //endregion
