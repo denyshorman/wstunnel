@@ -1,13 +1,13 @@
 package wstunnel
 
-import io.ktor.application.*
 import io.ktor.http.*
-import io.ktor.http.cio.websocket.*
-import io.ktor.request.*
-import io.ktor.response.*
-import io.ktor.routing.*
+import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.select
@@ -17,12 +17,9 @@ import mu.KotlinLogging
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.Duration
 import java.util.*
-import kotlin.collections.HashMap
-import kotlin.streams.toList
-import kotlin.time.minutes
-import kotlin.time.seconds
-import kotlin.time.toJavaDuration
+import kotlin.streams.asSequence
 
 class Server(
     host: String = "0.0.0.0",
@@ -38,15 +35,15 @@ class Server(
 
     private val server = embeddedServer(CIO, port, host) {
         install(WebSockets) {
-            pingPeriod = 10.seconds.toJavaDuration()
-            timeout = 5.seconds.toJavaDuration()
+            pingPeriod = Duration.ofSeconds(10)
+            timeout = Duration.ofSeconds(5)
             maxFrameSize = Long.MAX_VALUE
             masking = false
         }
 
         routing {
             val currDir = FileSystems.getDefault().getPath("").toAbsolutePath()
-            val currDirFiles = Files.walk(currDir, 1).filter { Files.isRegularFile(it) }.toList()
+            val currDirFiles = Files.walk(currDir, 1).asSequence().filter { Files.isRegularFile(it) }.toList()
             val currProgramPath = if (currDirFiles.size == 1) {
                 currDirFiles.first()
             } else {
@@ -215,8 +212,8 @@ class Server(
 
     fun stop() {
         server.stop(
-            gracePeriodMillis = 2.seconds.toLongMilliseconds(),
-            timeoutMillis = 5.minutes.toLongMilliseconds(),
+            gracePeriodMillis = Duration.ofSeconds(2).toMillis(),
+            timeoutMillis = Duration.ofMinutes(5).toMillis(),
         )
     }
 

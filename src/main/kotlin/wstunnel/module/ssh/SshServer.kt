@@ -2,7 +2,6 @@ package wstunnel.module.ssh
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.apache.sshd.common.FactoryManager
 import org.apache.sshd.common.PropertyResolverUtils
 import org.apache.sshd.common.file.nativefs.NativeFileSystemFactory
 import org.apache.sshd.common.forward.DefaultForwarderFactory
@@ -15,11 +14,10 @@ import org.apache.sshd.server.auth.pubkey.PublickeyAuthenticator
 import org.apache.sshd.server.forward.AcceptAllForwardingFilter
 import org.apache.sshd.server.shell.InteractiveProcessShellFactory
 import org.apache.sshd.server.shell.ProcessShellCommandFactory
-import org.apache.sshd.server.subsystem.sftp.SftpSubsystemFactory
+import org.apache.sshd.sftp.server.SftpSubsystemFactory
 import java.security.KeyPairGenerator
 import java.security.SecureRandom
-import kotlin.time.minutes
-import kotlin.time.toJavaDuration
+import java.time.Duration
 
 class SshServer {
     private val sshServer = SshServer.setUpDefaultServer()
@@ -41,8 +39,8 @@ class SshServer {
         sshServer.subsystemFactories = listOf(SftpSubsystemFactory())
         sshServer.fileSystemFactory = NativeFileSystemFactory.INSTANCE
 
-        sshServer.setSessionHeartbeat(SessionHeartbeatController.HeartbeatType.IGNORE, 1.minutes.toJavaDuration())
-        PropertyResolverUtils.updateProperty(sshServer, FactoryManager.IDLE_TIMEOUT, 2.minutes.toLongMilliseconds())
+        sshServer.setSessionHeartbeat(SessionHeartbeatController.HeartbeatType.IGNORE, Duration.ofMinutes(1))
+        PropertyResolverUtils.updateProperty(sshServer, "idle-timeout", Duration.ofMinutes(1).toMillis())
     }
 
     val port: Int get() = sshServer.port
