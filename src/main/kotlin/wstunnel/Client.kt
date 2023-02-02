@@ -3,18 +3,17 @@ package wstunnel
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.features.*
-import io.ktor.client.features.websocket.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.http.cio.websocket.*
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
+import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import mu.KotlinLogging
-import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import kotlin.time.seconds
+import java.time.Duration
 
 class Client(
     private val serverUrl: String,
@@ -34,8 +33,8 @@ class Client(
             endpoint {
                 maxConnectionsPerRoute = Int.MAX_VALUE
                 pipelineMaxSize = Int.MAX_VALUE
-                connectTimeout = 30.seconds.toLongMilliseconds()
-                keepAliveTime = 15.seconds.toLongMilliseconds()
+                connectTimeout = Duration.ofSeconds(30).toMillis()
+                keepAliveTime = Duration.ofSeconds(15).toMillis()
             }
         }
     }
@@ -135,7 +134,7 @@ class Client(
 
     private suspend fun forward() {
         coroutineScope {
-            val forward = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp().bind(InetSocketAddress(host, port))
+            val forward = aSocket(ActorSelectorManager(Dispatchers.IO)).tcp().bind(host, port)
 
             while (isActive) {
                 val socket = forward.accept()

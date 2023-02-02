@@ -1,12 +1,10 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     application
-    kotlin("jvm") version "1.4.10"
-    kotlin("plugin.serialization") version "1.4.10"
-    id("com.github.johnrengelman.shadow") version "6.1.0"
-    id("com.palantir.graal") version "0.7.1-20-g113a84d"
+    kotlin("jvm") version "1.8.0"
+    kotlin("plugin.serialization") version "1.8.0"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
 group = "wstunnel"
@@ -15,51 +13,39 @@ java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 application {
     mainClass.set("wstunnel.MainKt")
-    mainClassName = mainClass.get() // TODO: Remove when shadow plugin will add support for mainClass
-}
-
-graal {
-    graalVersion("20.2.0")
-    javaVersion("11")
-    outputName("wstunnel")
-    mainClass(application.mainClass.get())
 }
 
 repositories {
     mavenCentral()
-    jcenter()
-    maven {
-        url = uri("https://kotlin.bintray.com/kotlinx")
-    }
 }
 
-val ktorVersion = "1.4.1"
-val sshdVersion = "2.5.1"
-val kotestVersion = "4.3.0"
+val ktorVersion = "2.2.3"
+val sshdVersion = "2.9.2"
+val kotestVersion = "5.5.4"
 
 dependencies {
-    implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.github.microutils:kotlin-logging:1.8.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3")
+    implementation("ch.qos.logback:logback-classic:1.4.5")
+    implementation("io.github.microutils:kotlin-logging:3.0.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
 
     implementation("org.apache.sshd:sshd-core:$sshdVersion")
     implementation("org.apache.sshd:sshd-sftp:$sshdVersion")
 
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-server-websockets:$ktorVersion")
     implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-core-jvm:$ktorVersion")
-    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
-    implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
     implementation("io.ktor:ktor-client-cio:$ktorVersion")
-    implementation("io.ktor:ktor-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-network:$ktorVersion")
 
     testImplementation("io.ktor:ktor-server-tests:$ktorVersion")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-json:$kotestVersion")
-    testImplementation("io.mockk:mockk:1.10.2")
+    testImplementation("io.mockk:mockk:1.13.4")
 }
 
 tasks {
@@ -69,12 +55,6 @@ tasks {
 
             freeCompilerArgs = freeCompilerArgs + listOf(
                 "-Xjsr305=strict",
-                "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
-                "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
-                "-Xuse-experimental=kotlinx.coroutines.FlowPreview",
-                "-Xuse-experimental=kotlinx.cli.ExperimentalCli",
-                "-Xuse-experimental=kotlin.time.ExperimentalTime",
-                "-Xuse-experimental=io.ktor.util.KtorExperimentalAPI"
             )
         }
     }
@@ -93,9 +73,5 @@ tasks {
                 )
             )
         }
-    }
-
-    withType<ShadowJar> {
-        minimize()
     }
 }
