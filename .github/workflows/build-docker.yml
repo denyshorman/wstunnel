@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: Build Docker Image
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -18,18 +19,17 @@ jobs:
         with:
           lfs: true
       - run: git lfs checkout
-      - run: chmod +x ./gradlew && ./gradlew shadowJar
+      - uses: gradle/gradle-build-action@v2
+      - run: ./gradlew shadowJar
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
       - uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v2
-      - uses: docker/build-push-action@v3
+      - uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          builder: ${{ steps.buildx.outputs.name }}
           tags: ghcr.io/denyshorman/wstunnel:latest
-          cache-from: type=registry,ref=ghcr.io/denyshorman/wstunnel:buildcache
-          cache-to: type=registry,ref=ghcr.io/denyshorman/wstunnel:buildcache,mode=max
