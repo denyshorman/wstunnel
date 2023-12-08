@@ -2,7 +2,6 @@ package wstunnel
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -36,7 +35,7 @@ data class ListenConfig(
 
 @Serializable
 @SerialName("1")
-object ConnectionEstablished : Message()
+data object ConnectionEstablished : Message()
 //endregion
 
 //region Other Models
