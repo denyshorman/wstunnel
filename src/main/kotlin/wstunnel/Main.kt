@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalCli::class)
+
 package wstunnel
 
 import ch.qos.logback.classic.Level
