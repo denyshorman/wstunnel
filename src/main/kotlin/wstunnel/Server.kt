@@ -75,7 +75,7 @@ class Server(
 
                 try {
                     coroutineScope {
-                        if (logger.isDebugEnabled) logger.debug("Client $wsId connected")
+                        if (logger.isDebugEnabled) logger.debug("Client {} connected", wsId)
 
                         val msg = call.request.header("X-TUN-CONF")?.decode()
 
@@ -88,7 +88,7 @@ class Server(
                             throw ConnectionClosedException(closeReason)
                         }
 
-                        if (logger.isDebugEnabled) logger.debug("Client $wsId wants to ${msg.connType} on ${msg.id}")
+                        if (logger.isDebugEnabled) logger.debug("Client {} wants to {} on {}", wsId, msg.connType, msg.id)
 
                         val awaitConn0: HashMap<String, LinkedList<Pair<DefaultWebSocketServerSession, CompletableDeferred<DefaultWebSocketServerSession>>>>
                         val awaitConn1: HashMap<String, LinkedList<Pair<DefaultWebSocketServerSession, CompletableDeferred<DefaultWebSocketServerSession>>>>
@@ -123,7 +123,7 @@ class Server(
                             mutex.unlock()
 
                             if (logger.isDebugEnabled) {
-                                logger.debug("Client $wsId awaiting for another socket...")
+                                logger.debug("Client {} awaiting for another socket...", wsId)
                             }
 
                             try {
@@ -158,7 +158,7 @@ class Server(
                         }
 
                         if (logger.isDebugEnabled) {
-                            logger.debug("Client $wsId received a connection. Start forwarding data...")
+                            logger.debug("Client {} received a connection. Start forwarding data...", wsId)
                         }
 
                         this@webSocket.send(Frame.Text(ConnectionEstablished.encode()))
@@ -174,17 +174,17 @@ class Server(
                     throw e
                 } catch (e: ConnectionClosedException) {
                     if (logger.isDebugEnabled) {
-                        logger.debug("Closing client $wsId connection: ${e.reason}.")
+                        logger.debug("Closing client {} connection: {}.", wsId, e.reason)
                     }
 
                     if (e.reason == null) close() else close(e.reason)
                 } catch (e: Throwable) {
                     if (logger.isDebugEnabled) {
-                        logger.debug("Closing client $wsId connection: ${e.message}.")
+                        logger.debug("Closing client {} connection: {}.", wsId, e.message)
                     }
                 } finally {
                     if (logger.isDebugEnabled) {
-                        logger.debug("Client $wsId connection has been closed.")
+                        logger.debug("Client {} connection has been closed.", wsId)
                     }
                 }
             }
