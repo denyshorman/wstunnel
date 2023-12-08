@@ -2,14 +2,17 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     application
-    kotlin("jvm") version "1.8.0"
-    kotlin("plugin.serialization") version "1.8.0"
-    id("com.github.johnrengelman.shadow") version "7.1.2"
+    kotlin("jvm") version "1.9.21"
+    kotlin("plugin.serialization") version "1.9.21"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "wstunnel"
 version = "1.0.0"
-java.sourceCompatibility = JavaVersion.VERSION_1_8
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+}
 
 application {
     mainClass.set("wstunnel.MainKt")
@@ -19,14 +22,14 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "2.2.3"
-val sshdVersion = "2.9.2"
-val kotestVersion = "5.5.4"
+val ktorVersion = "2.3.7"
+val sshdVersion = "2.11.0"
+val kotestVersion = "5.8.0"
 
 dependencies {
-    implementation("ch.qos.logback:logback-classic:1.4.5")
-    implementation("io.github.microutils:kotlin-logging:3.0.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
+    implementation("ch.qos.logback:logback-classic:1.4.14")
+    implementation("io.github.microutils:kotlin-logging:3.0.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.6")
 
     implementation("org.apache.sshd:sshd-core:$sshdVersion")
     implementation("org.apache.sshd:sshd-sftp:$sshdVersion")
@@ -45,7 +48,7 @@ dependencies {
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-json:$kotestVersion")
-    testImplementation("io.mockk:mockk:1.13.4")
+    testImplementation("io.mockk:mockk:1.13.8")
 }
 
 tasks {
