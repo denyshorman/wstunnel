@@ -1,1 +1,1 @@
-rootProject.name = "ws-tunnel"
+rootProject.name = "wstunnel"
