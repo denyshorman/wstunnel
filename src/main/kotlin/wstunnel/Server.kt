@@ -1,5 +1,6 @@
 package wstunnel
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.cio.*
@@ -13,17 +14,13 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mu.KotlinLogging
-import java.nio.file.FileSystems
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.time.Duration
 import java.util.*
-import kotlin.streams.asSequence
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class Server(
     host: String = "0.0.0.0",
-    port: Int = 80,
+    port: Int = 8080,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -35,26 +32,18 @@ class Server(
 
     private val server = embeddedServer(CIO, port, host) {
         install(WebSockets) {
-            pingPeriod = Duration.ofSeconds(10)
-            timeout = Duration.ofSeconds(5)
+            pingPeriod = 10.seconds
+            timeout = 5.seconds
             maxFrameSize = Long.MAX_VALUE
             masking = false
         }
 
         routing {
-            val currDir = FileSystems.getDefault().getPath("").toAbsolutePath()
-            val currDirFiles = Files.walk(currDir, 1).asSequence().filter { Files.isRegularFile(it) }.toList()
-            val currProgramPath = if (currDirFiles.size == 1) {
-                currDirFiles.first()
-            } else {
-                val currProgramPathStr = System.getenv("WSTUNNEL_BINARY_PATH")
-                if (currProgramPathStr == null) null else Paths.get(currProgramPathStr)
-            }
+            val compiledBinaryPath = compiledBinaryPath()
 
-            if (currProgramPath == null) {
+            if (compiledBinaryPath == null) {
                 get("download") {
                     call.response.status(HttpStatusCode.NotFound)
-                    call.respondText("Can't find wstunnel binary. Please define WSTUNNEL_BINARY_PATH environment variable.")
                 }
             } else {
                 get("download") {
@@ -62,11 +51,11 @@ class Server(
                         HttpHeaders.ContentDisposition,
                         ContentDisposition.Attachment.withParameter(
                             ContentDisposition.Parameters.FileName,
-                            currProgramPath.fileName.toString()
-                        ).toString()
+                            compiledBinaryPath.fileName.toString(),
+                        ).toString(),
                     )
 
-                    call.respondFile(currProgramPath.toFile())
+                    call.respondFile(compiledBinaryPath.toFile())
                 }
             }
 
@@ -75,7 +64,7 @@ class Server(
 
                 try {
                     coroutineScope {
-                        if (logger.isDebugEnabled) logger.debug("Client {} connected", wsId)
+                        logger.debug { "Client $wsId connected" }
 
                         val msg = call.request.header("X-TUN-CONF")?.decode()
 
@@ -88,7 +77,7 @@ class Server(
                             throw ConnectionClosedException(closeReason)
                         }
 
-                        if (logger.isDebugEnabled) logger.debug("Client {} wants to {} on {}", wsId, msg.connType, msg.id)
+                        logger.debug { "Client $wsId wants to ${msg.connType} on ${msg.id}" }
 
                         val awaitConn0: HashMap<String, LinkedList<Pair<DefaultWebSocketServerSession, CompletableDeferred<DefaultWebSocketServerSession>>>>
                         val awaitConn1: HashMap<String, LinkedList<Pair<DefaultWebSocketServerSession, CompletableDeferred<DefaultWebSocketServerSession>>>>
@@ -122,9 +111,7 @@ class Server(
 
                             mutex.unlock()
 
-                            if (logger.isDebugEnabled) {
-                                logger.debug("Client {} awaiting for another socket...", wsId)
-                            }
+                            logger.debug { "Client $wsId awaiting for another socket..." }
 
                             try {
                                 select {
@@ -147,7 +134,7 @@ class Server(
                                 throw e
                             }
                         } else {
-                            if (awaitingConnList0.size == 0) {
+                            if (awaitingConnList0.isEmpty()) {
                                 awaitConn0.remove(msg.id)
                             }
 
@@ -157,9 +144,7 @@ class Server(
                             socketPair.first
                         }
 
-                        if (logger.isDebugEnabled) {
-                            logger.debug("Client {} received a connection. Start forwarding data...", wsId)
-                        }
+                        logger.debug { "Client $wsId received a connection. Start forwarding data..." }
 
                         this@webSocket.send(Frame.Text(ConnectionEstablished.encode()))
 
@@ -173,19 +158,13 @@ class Server(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: ConnectionClosedException) {
-                    if (logger.isDebugEnabled) {
-                        logger.debug("Closing client {} connection: {}.", wsId, e.reason)
-                    }
+                    logger.debug { "Closing client $wsId connection: ${e.reason}." }
 
                     if (e.reason == null) close() else close(e.reason)
                 } catch (e: Throwable) {
-                    if (logger.isDebugEnabled) {
-                        logger.debug("Closing client {} connection: {}.", wsId, e.message)
-                    }
+                    logger.debug { "Closing client $wsId connection: ${e.message}." }
                 } finally {
-                    if (logger.isDebugEnabled) {
-                        logger.debug("Client {} connection has been closed.", wsId)
-                    }
+                    logger.debug { "Client $wsId connection has been closed." }
                 }
             }
         }
@@ -212,8 +191,8 @@ class Server(
 
     fun stop() {
         server.stop(
-            gracePeriodMillis = Duration.ofSeconds(2).toMillis(),
-            timeoutMillis = Duration.ofMinutes(5).toMillis(),
+            gracePeriodMillis = 2.seconds.inWholeMilliseconds,
+            timeoutMillis = 5.minutes.inWholeMilliseconds,
         )
     }
 

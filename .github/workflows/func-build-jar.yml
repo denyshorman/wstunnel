@@ -1,0 +1,36 @@
+name: Build Jar
+
+on:
+  workflow_call:
+    outputs:
+      ARTIFACT_ID:
+        value: ${{ jobs.build-jar.outputs.ARTIFACT_ID }}
+
+jobs:
+  build-jar:
+    name: Build Jar
+    runs-on: ubuntu-latest
+    outputs:
+      ARTIFACT_ID: ${{ env.ARTIFACT_ID }}
+    env:
+      ARTIFACT_ID: wstunnel-${{ github.sha }}.jar
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 25
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v5
+      - run: ./gradlew buildFatJar
+        env:
+          GITHUB_TOKEN: ${{ secrets.PACKAGE_GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v6
+        id: upload-jar
+        with:
+          name: ${{ env.ARTIFACT_ID }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true

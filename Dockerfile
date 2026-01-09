@@ -1,4 +1,6 @@
-FROM eclipse-temurin:21-alpine
-ENV WSTUNNEL_BINARY_PATH=/app/wstunnel.jar
-COPY build/libs/*.jar $WSTUNNEL_BINARY_PATH
-CMD java -jar $WSTUNNEL_BINARY_PATH server -p $PORT
+FROM eclipse-temurin:25-alpine
+RUN addgroup -S wstunnel && adduser -S wstunnel -G wstunnel
+COPY --chown=wstunnel:wstunnel build/libs/*.jar /app/wstunnel.jar
+WORKDIR /app
+USER wstunnel
+ENTRYPOINT ["java", "-jar", "/app/wstunnel.jar"]

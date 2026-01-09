@@ -1,6 +1,6 @@
 package wstunnel
 
-import io.kotest.assertions.json.shouldMatchJson
+import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -10,7 +10,7 @@ class ProtocolTest : FunSpec({
     //region Message Tests
     test("serialize message") {
         val encodedMsg = ListenConfig(SocketRole.Listen, "1234").encode()
-        encodedMsg.shouldMatchJson("""{"T":"0","r":"0","i":"1234"}""")
+        encodedMsg.shouldEqualJson("""{"T":"0","r":"0","i":"1234"}""")
     }
 
     test("deserialize message") {
