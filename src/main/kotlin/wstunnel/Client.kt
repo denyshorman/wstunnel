@@ -1,5 +1,6 @@
 package wstunnel
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
@@ -9,11 +10,12 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
+import io.ktor.utils.io.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
-import mu.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import java.nio.ByteBuffer
-import java.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class Client(
     private val serverUrl: String,
@@ -33,8 +35,8 @@ class Client(
             endpoint {
                 maxConnectionsPerRoute = Int.MAX_VALUE
                 pipelineMaxSize = Int.MAX_VALUE
-                connectTimeout = Duration.ofSeconds(30).toMillis()
-                keepAliveTime = Duration.ofSeconds(15).toMillis()
+                connectTimeout = 30.seconds.inWholeMilliseconds
+                keepAliveTime = 15.seconds.inWholeMilliseconds
             }
         }
     }
@@ -119,9 +121,7 @@ class Client(
                     } catch (e: IllegalArgumentException) {
                         throw e
                     } catch (e: Throwable) {
-                        if (logger.isDebugEnabled) {
-                            logger.debug("Listen error: ${e.message}")
-                        }
+                        logger.debug { "Listen error: ${e.message}" }
                     } finally {
                         triggerNewConnection.complete(Unit)
                     }
@@ -158,9 +158,7 @@ class Client(
                     } catch (e: IllegalArgumentException) {
                         throw e
                     } catch (e: Throwable) {
-                        if (logger.isDebugEnabled) {
-                            logger.debug("Forward error: ${e.message}")
-                        }
+                        logger.debug { "Forward error: ${e.message}" }
                     } finally {
                         socket.dispose()
                     }

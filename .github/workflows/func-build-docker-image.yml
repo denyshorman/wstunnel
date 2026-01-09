@@ -1,0 +1,69 @@
+name: Build Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      VERSION:
+        required: true
+        type: string
+      ARTIFACT_ID:
+        required: true
+        type: string
+    outputs:
+      IMAGE_VERSION:
+        value: ${{ jobs.build-docker-image.outputs.IMAGE_VERSION }}
+      IMAGE_NAME:
+        value: ${{ jobs.build-docker-image.outputs.IMAGE_NAME }}
+      IMAGE_TAG:
+        value: ${{ jobs.build-docker-image.outputs.IMAGE_TAG }}
+      IMAGE_DIGEST:
+        value: ${{ jobs.build-docker-image.outputs.IMAGE_DIGEST }}
+
+jobs:
+  build-docker-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE_VERSION: ${{ steps.image-tag.outputs.IMAGE_VERSION }}
+      IMAGE_NAME: ${{ steps.image-tag.outputs.IMAGE_NAME }}
+      IMAGE_TAG: ${{ steps.image-tag.outputs.IMAGE_TAG }}
+      IMAGE_DIGEST: ${{ steps.image-digest.outputs.IMAGE_DIGEST }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.ARTIFACT_ID }}
+          path: build/libs
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Construct image tag
+        id: image-tag
+        run: |
+          IMAGE_VERSION=${{ inputs.VERSION }}
+          IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}
+          IMAGE_TAG=$IMAGE_NAME:$IMAGE_VERSION
+          echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image-tag.outputs.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max,timeout=10080m
+      - name: Get image digest
+        id: image-digest
+        run: |
+          IMAGE_TAG=${{ steps.image-tag.outputs.IMAGE_TAG }}
+          docker pull $IMAGE_TAG
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE_TAG)
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> $GITHUB_OUTPUT

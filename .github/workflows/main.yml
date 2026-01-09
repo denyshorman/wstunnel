@@ -1,0 +1,38 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-jar:
+    name: Build Jar
+    permissions:
+      contents: read
+    uses: ./.github/workflows/func-build-jar.yml
+    secrets: inherit
+  create-release:
+    name: Create Release
+    needs: build-jar
+    permissions:
+      contents: write
+    uses: ./.github/workflows/func-create-release.yml
+    with:
+      ARTIFACT_ID: ${{ needs.build-jar.outputs.ARTIFACT_ID }}
+      RELEASE_NAME: WSTunnel CLI DEV
+      RELEASE_TAG: wstunnel-dev
+      RELEASE_BODY: WSTunnel CLI Latest DEV Build
+    secrets: inherit
+  build-docker-image:
+    name: Build Docker Image
+    needs: build-jar
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/func-build-docker-image.yml
+    with:
+      VERSION: dev
+      ARTIFACT_ID: ${{ needs.build-jar.outputs.ARTIFACT_ID }}
+    secrets: inherit

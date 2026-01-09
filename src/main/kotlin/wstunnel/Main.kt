@@ -1,21 +1,26 @@
-@file:OptIn(ExperimentalCli::class)
-
 package wstunnel
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.LoggerContext
-import kotlinx.cli.*
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.multiple
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.int
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import wstunnel.module.ssh.SshServer
 import java.util.*
 
-private class ServerCommand : Subcommand("server", "Server related options") {
-    private val port by option(ArgType.Int, "port", "p").default(80)
-    private val host by option(ArgType.String, "host", "a").default("0.0.0.0")
+private class ServerCommand : CliktCommand(name = "server") {
+    private val port by option("-p", "--port", envvar = "WSTUN_SERVER_PORT", help = "Port to listen on").int().default(8080)
+    private val host by option("-a", "--host", envvar = "WSTUN_SERVER_HOST", help = "Host address to bind to").default("0.0.0.0")
 
-    override fun execute() {
+    override fun run() {
         val server = Server(host, port)
         server.start()
 
@@ -27,20 +32,18 @@ private class ServerCommand : Subcommand("server", "Server related options") {
     }
 }
 
-private class ClientCommand : Subcommand("client", "Client related options") {
-    private val server by option(ArgType.String, "serverUrl", "S", "Server URL in format ws|wss://host[:port]")
-    private val listen by option(ArgType.String, "listen", "l", "Listen port[;host[;id]]").multiple()
-    private val forward by option(ArgType.String, "forward", "f", "Forward port[;host[;id]]").multiple()
-    private val listenSshd by option(ArgType.String, "listen-sshd", "lsshd", "Listen sshd [port[;host[;id]]]")
+private class ClientCommand : CliktCommand(name = "client") {
+    private val serverUrl by option("-S", "--serverUrl", envvar = "WSTUN_SERVER_URL", help = "Server URL in format ws|wss://host[:port]").required()
+    private val listen by option("-l", "--listen", help = "Listen port[;host[;id]]").multiple()
+    private val forward by option("-f", "--forward", help = "Forward port[;host[;id]]").multiple()
+    private val listenSshd by option("--lsshd", "--listen-sshd", envvar = "WSTUN_LISTEN_SSHD", help = "Listen sshd [port[;host[;id]]]")
+    private val sshdLogin by option("--sshd-login", envvar = "WSTUN_SSHD_LOGIN", help = "SSH server login username")
+    private val sshdPassword by option("--sshd-password", envvar = "WSTUN_SSHD_PASSWORD", help = "SSH server login password")
 
-    override fun execute() {
+    override fun run() {
         runBlocking(Dispatchers.Default) {
             try {
                 coroutineScope {
-                    val serverUrl = server
-                        ?: System.getenv("WSTUNNEL_SERVER")
-                        ?: throw RuntimeException("Server is not defined")
-
                     val listenConf = listen.map { ListenForwardConfig.deserialize(SocketRole.Listen, it) }
                     val forwardConf = forward.map { ListenForwardConfig.deserialize(SocketRole.Forward, it) }
 
@@ -57,7 +60,7 @@ private class ClientCommand : Subcommand("client", "Client related options") {
                         val config = ListenForwardConfig.deserialize(SocketRole.Listen, listenSshd!!)
 
                         launch {
-                            val sshd = SshServer()
+                            val sshd = SshServer(sshdLogin, sshdPassword)
                             sshd.start(config.host, config.port)
 
                             launch {
@@ -112,6 +115,10 @@ private class ClientCommand : Subcommand("client", "Client related options") {
     }
 }
 
+private class WsTunnel : CliktCommand(name = "wstunnel") {
+    override fun run() = Unit
+}
+
 fun main(args: Array<String>) {
     try {
         val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
@@ -122,9 +129,9 @@ fun main(args: Array<String>) {
         rootLogger.level = Level.OFF
         curPackageLogger.level = Level.OFF
 
-        val parser = ArgParser("ws-tunnel")
-        parser.subcommands(ServerCommand(), ClientCommand())
-        parser.parse(args)
+        WsTunnel()
+            .subcommands(ServerCommand(), ClientCommand())
+            .main(args)
     } catch (e: Throwable) {
         System.err.println(e.message)
         kotlin.system.exitProcess(1)

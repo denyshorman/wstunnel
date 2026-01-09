@@ -16,21 +16,19 @@ import org.apache.sshd.server.shell.InteractiveProcessShellFactory
 import org.apache.sshd.server.shell.ProcessShellCommandFactory
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 import java.security.KeyPairGenerator
-import java.security.SecureRandom
+import java.security.spec.ECGenParameterSpec
 import java.time.Duration
 
-class SshServer {
+class SshServer(
+    private val login: String? = null,
+    private val password: String? = null,
+) {
     private val sshServer = SshServer.setUpDefaultServer()
 
     init {
-        val generator = KeyPairGenerator.getInstance("RSA")
-        generator.initialize(2048, SecureRandom(byteArrayOf(0)))
-        val keyPair = generator.generateKeyPair()
-        val keyPairProvider = KeyPairProvider.wrap(keyPair)
-
-        sshServer.keyPairProvider = keyPairProvider
-        sshServer.publickeyAuthenticator = PublickeyAuthenticator { _, _, _ -> true }
-        sshServer.passwordAuthenticator = PasswordAuthenticator { _, _, _ -> true }
+        sshServer.keyPairProvider = keyPairProvider()
+        sshServer.publickeyAuthenticator = publicKeyAuthenticator()
+        sshServer.passwordAuthenticator = passwordAuthenticator()
         sshServer.forwardingFilter = AcceptAllForwardingFilter.INSTANCE
         sshServer.forwarderFactory = DefaultForwarderFactory.INSTANCE
         sshServer.ioServiceFactoryFactory = Nio2ServiceFactoryFactory()
@@ -60,6 +58,42 @@ class SshServer {
     suspend fun stop() {
         withContext(Dispatchers.IO) {
             sshServer.stop()
+        }
+    }
+
+    private fun keyPairProvider(): KeyPairProvider {
+        val generator = KeyPairGenerator.getInstance("EC")
+        val ecSpec = ECGenParameterSpec("secp256r1")
+        generator.initialize(ecSpec)
+        val keyPair = generator.generateKeyPair()
+        return KeyPairProvider.wrap(keyPair)
+    }
+
+    private fun publicKeyAuthenticator(): PublickeyAuthenticator {
+        return if (login != null) {
+            PublickeyAuthenticator { username, _, _ -> username == login }
+        } else {
+            PublickeyAuthenticator { _, _, _ -> true }
+        }
+    }
+
+    private fun passwordAuthenticator(): PasswordAuthenticator {
+        return when {
+            login != null && password != null -> {
+                PasswordAuthenticator { username, pwd, _ -> username == login && pwd == password }
+            }
+
+            login != null -> {
+                PasswordAuthenticator { username, _, _ -> username == login }
+            }
+
+            password != null -> {
+                PasswordAuthenticator { _, pwd, _ -> pwd == password }
+            }
+
+            else -> {
+                PasswordAuthenticator { _, _, _ -> true }
+            }
         }
     }
 }

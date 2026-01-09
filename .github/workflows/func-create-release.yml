@@ -1,0 +1,34 @@
+name: Create Release
+
+on:
+  workflow_call:
+    inputs:
+      ARTIFACT_ID:
+        required: true
+        type: string
+      RELEASE_NAME:
+        required: true
+        type: string
+      RELEASE_TAG:
+        required: true
+        type: string
+      RELEASE_BODY:
+        required: false
+        type: string
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.ARTIFACT_ID }}
+          path: build/libs
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: build/libs/*.jar
+          name: ${{ inputs.RELEASE_NAME }}
+          tag_name: ${{ inputs.RELEASE_TAG }}
+          body: ${{ inputs.RELEASE_BODY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
